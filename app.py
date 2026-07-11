@@ -379,21 +379,45 @@ elif page == "📞 Get Phone Number":
             
             st.info(f"Running phone scraper subprocess: `{' '.join(cmd)}`")
             
-            # Start process
-            log_area = st.empty()
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
-            
-            logs = []
-            while True:
-                line = process.stdout.readline()
-                if not line and process.poll() is not None:
-                    break
-                if line:
-                    logs.append(line)
-                    log_area.code("".join(logs[-30:])) # Show last 30 lines
-                    
-            rc = process.poll()
-            if rc == 0:
-                st.success("Successfully completed phone number fetching!")
-            else:
-                st.error(f"Scraper exited with code: {rc}")
+             # Start process
+             log_area = st.empty()
+             progress_bar = st.progress(0.0)
+             status_text = st.empty()
+             
+             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+             
+             logs = []
+             total_hotels = 0
+             current_processed = 0
+             
+             while True:
+                 line = process.stdout.readline()
+                 if not line and process.poll() is not None:
+                     break
+                 if line:
+                     logs.append(line)
+                     log_area.code("".join(logs[-30:])) # Show last 30 lines
+                     
+                     # Parse total hotels from output
+                     if "Fetching phone numbers for" in line:
+                         match = re.search(r"Fetching phone numbers for (\d+)", line)
+                         if match:
+                             total_hotels = int(match.group(1))
+                             status_text.text(f"Scraping progress: 0 / {total_hotels}")
+                             
+                     # Parse successes and failures to update progress
+                     if "-> Success:" in line or "-> Failed:" in line:
+                         current_processed += 1
+                         if total_hotels > 0:
+                             progress_val = min(1.0, current_processed / total_hotels)
+                             progress_bar.progress(progress_val)
+                             status_text.text(f"Scraping progress: {current_processed} / {total_hotels}")
+                             
+             rc = process.poll()
+             if rc == 0:
+                 progress_bar.progress(1.0)
+                 if total_hotels > 0:
+                     status_text.text(f"Scraping progress: {total_hotels} / {total_hotels} (Done)")
+                 st.success("Successfully completed phone number fetching!")
+             else:
+                 st.error(f"Scraper exited with code: {rc}")
