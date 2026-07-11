@@ -76,6 +76,10 @@ def save_data_to_file(hotels_data, output_file):
     else:
         df = pd.DataFrame(combined_data)
         df.to_csv(output_file, index=False)
+    try:
+        os.chmod(output_file, 0o666)
+    except Exception:
+        pass
 
 def parse_hotels_from_html(html, existing_names, hotels_data, output_file, driver=None, deep_scrape=False, deep_limit=0, deep_scraped_count=None):
     soup = BeautifulSoup(html, 'html.parser')
@@ -276,6 +280,10 @@ def scrape_makemytrip(url, output_file, deep_scrape=False, deep_limit=10, scroll
                 if os.path.exists(output_file):
                     os.remove(output_file)
                 os.rename(temp_file, output_file)
+                try:
+                    os.chmod(output_file, 0o666)
+                except Exception:
+                    pass
                 print(f"Successfully scraped {len(existing_names)} hotels and saved to {output_file}!")
             except Exception as rename_err:
                 print(f"Error finalizing output file: {rename_err}")
@@ -289,6 +297,10 @@ def scrape_makemytrip(url, output_file, deep_scrape=False, deep_limit=10, scroll
                 if os.path.exists(output_file):
                     os.remove(output_file)
                 os.rename(temp_file, output_file)
+                try:
+                    os.chmod(output_file, 0o666)
+                except Exception:
+                    pass
                 print(f"Recovered intermediate backup data and saved to {output_file}")
             except Exception as recover_err:
                 print(f"Failed to recover backup temp file: {recover_err}")

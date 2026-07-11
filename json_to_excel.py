@@ -29,6 +29,10 @@ def convert_json_to_excel(json_path, excel_path):
                 worksheet.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 50)
                 
         print(f"Successfully converted! Excel file saved at: {excel_path}")
+        try:
+            os.chmod(excel_path, 0o666)
+        except Exception:
+            pass
     except Exception as e:
         print(f"An error occurred during conversion: {e}")
 
