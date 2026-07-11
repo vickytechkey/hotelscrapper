@@ -165,8 +165,7 @@ if page == "🏨 Hotel Listing Scraper":
         output_file = st.text_input("Output File Path", value=os.path.join("results", output_filename))
         scrolls = st.number_input("Scroll Iterations (Depth)", min_value=1, max_value=5000, value=6, step=1)
         
-    with col2:
-        headless = st.checkbox("Run Headless Browser (Invisible)", value=True, help="Uncheck this if you want to see the browser running or need to solve a CAPTCHA.")
+        headless = False
         deep_scrape = st.checkbox("Deep Scrape (Scrape Address & Amenities)", value=False)
         
         deep_limit = 5
@@ -353,10 +352,21 @@ elif page == "📞 Get Phone Number":
     
     target_input = custom_input if custom_input else input_file
     
-    limit = st.number_input("Max hotels to fetch phone numbers for", min_value=1, max_value=500, value=20)
+    limit = st.number_input("Max hotels to fetch phone numbers for", min_value=1, value=20)
     
-    # Headless toggle
-    headless = st.checkbox("Run in Headless Mode (Recommended for containers/VMs)", value=True)
+    headless = False
+    
+    # Prepare command
+    cmd_list = [sys.executable, "phone_scraper.py", "--input", target_input, "--limit", str(limit)]
+        
+    # For Docker/Linux virtual display if headless=False
+    if not headless and sys.platform.startswith("linux"):
+        import shutil
+        if shutil.which("xvfb-run"):
+            cmd_list = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd_list
+            
+    # Allow user to edit the command directly
+    cmd_string = st.text_input("Scraper Command (You can edit this command before running)", value=" ".join(cmd_list))
     
     if st.button("📞 Start Fetching Phone Numbers"):
         if not target_input or "No JSON files" in target_input:
@@ -364,17 +374,9 @@ elif page == "📞 Get Phone Number":
         elif not os.path.exists(target_input):
             st.error(f"Input file `{target_input}` does not exist!")
         else:
-            # Prepare command
-            cmd = [sys.executable, "phone_scraper.py", "--input", target_input, "--limit", str(limit)]
-            if headless:
-                cmd.append("--headless")
-                
-            # For Docker/Linux virtual display if headless=False
-            if not headless and sys.platform.startswith("linux"):
-                import shutil
-                if shutil.which("xvfb-run"):
-                    cmd = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd
-                
+            import shlex
+            cmd = shlex.split(cmd_string)
+            
             st.info(f"Running phone scraper subprocess: `{' '.join(cmd)}`")
             
             # Start process
