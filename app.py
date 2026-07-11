@@ -206,6 +206,11 @@ if page == "🏨 Hotel Listing Scraper":
             ]
             if headless:
                 cmd.append("--headless")
+            else:
+                if sys.platform.startswith('linux'):
+                    import shutil
+                    if shutil.which("xvfb-run"):
+                        cmd = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd
             if deep_scrape:
                 cmd.append("--deep")
                 cmd.append("--deep-limit")

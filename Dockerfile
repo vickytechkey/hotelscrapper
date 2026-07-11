@@ -39,5 +39,5 @@ RUN mkdir -p results
 
 EXPOSE 8501
 
-# Run Streamlit on container startup wrapped in xvfb-run to support virtual display
-CMD ["xvfb-run", "--server-args=-screen 0 1024x768x24", "streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Run Streamlit on container startup
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
