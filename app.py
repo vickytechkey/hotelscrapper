@@ -375,7 +375,7 @@ elif page == "📞 Get Phone Number":
             st.error(f"Input file `{target_input}` does not exist!")
         else:
             import shlex
-            cmd = shlex.split(cmd_string)
+            cmd = shlex.split(cmd_string, posix=(os.name != 'nt'))
             
             st.info(f"Running phone scraper subprocess: `{' '.join(cmd)}`")
             
