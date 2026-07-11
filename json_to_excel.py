@@ -1,7 +1,7 @@
 import os
 import argparse
 import json
-import pandas as pd
+import openpyxl
 
 def convert_json_to_excel(json_path, excel_path):
     print(f"Reading JSON file: {json_path}")
@@ -13,24 +13,41 @@ def convert_json_to_excel(json_path, excel_path):
         # Load JSON data safely using standard library
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        df = pd.DataFrame(data)
-        
+            
+        if not data:
+            print("Warning: JSON data is empty!")
+            return
+            
         # Write to Excel
         print(f"Writing data to Excel: {excel_path}")
         
-        # We use ExcelWriter to format columns to look clean and legible
-        with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Hotels')
+        # Create Excel workbook using pure openpyxl (bypasses pandas/pyarrow)
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Hotels"
+        
+        # Extract headers (all unique keys)
+        headers = []
+        for item in data:
+            for k in item.keys():
+                if k not in headers:
+                    headers.append(k)
+                    
+        # Write headers
+        ws.append(headers)
+        
+        # Write rows
+        for item in data:
+            row = [item.get(h, "") for h in headers]
+            ws.append(row)
             
-            # Auto-fit columns
-            workbook = writer.book
-            worksheet = writer.sheets['Hotels']
-            for col in worksheet.columns:
-                max_len = max(len(str(val.value or '')) for val in col)
-                col_letter = col[0].column_letter
-                # Set a reasonable min/max width
-                worksheet.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 50)
-                
+        # Auto-fit columns
+        for col in ws.columns:
+            max_len = max(len(str(val.value or '')) for val in col)
+            col_letter = col[0].column_letter
+            ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 50)
+            
+        wb.save(excel_path)
         print(f"Successfully converted! Excel file saved at: {excel_path}")
         try:
             os.chmod(excel_path, 0o666)
