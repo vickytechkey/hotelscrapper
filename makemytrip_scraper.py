@@ -170,6 +170,24 @@ def parse_hotels_from_html(html, existing_names, hotels_data, output_file, drive
         hotels_data.clear()
     return new_added
 
+def init_chrome_driver(options, headless):
+    import re
+    try:
+        return uc.Chrome(options=options, headless=headless)
+    except Exception as e:
+        err_msg = str(e)
+        match = re.search(r"Current browser version is ([\d.]+)", err_msg)
+        if match:
+            version = match.group(1)
+            major_version = int(version.split('.')[0])
+            print(f"Detected Chrome version mismatch. Retrying with version_main={major_version}...")
+            try:
+                return uc.Chrome(options=options, headless=headless, version_main=major_version)
+            except Exception as retry_err:
+                print(f"Retry with version_main={major_version} failed: {retry_err}")
+                raise retry_err
+        raise e
+
 def scrape_makemytrip(url, output_file, deep_scrape=False, deep_limit=10, scrolls=6, headless=False):
     temp_file = output_file + ".tmp"
     print(f"Starting undetected-chromedriver to scrape: {url} (headless={headless})")
@@ -183,7 +201,7 @@ def scrape_makemytrip(url, output_file, deep_scrape=False, deep_limit=10, scroll
     options.add_experimental_option("prefs", {
         "profile.managed_default_content_settings.images": 2
     })
-    driver = uc.Chrome(options=options, headless=headless)
+    driver = init_chrome_driver(options=options, headless=headless)
     hotels_data = []
     existing_names = set()
     deep_scraped_count = [0]

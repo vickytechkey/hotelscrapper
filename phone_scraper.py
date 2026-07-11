@@ -66,6 +66,24 @@ def scrape_google_phone(driver, hotel_name, location):
         
     return None
 
+def init_chrome_driver(options, headless):
+    import re
+    try:
+        return uc.Chrome(options=options, headless=headless)
+    except Exception as e:
+        err_msg = str(e)
+        match = re.search(r"Current browser version is ([\d.]+)", err_msg)
+        if match:
+            version = match.group(1)
+            major_version = int(version.split('.')[0])
+            print(f"Detected Chrome version mismatch. Retrying with version_main={major_version}...")
+            try:
+                return uc.Chrome(options=options, headless=headless, version_main=major_version)
+            except Exception as retry_err:
+                print(f"Retry with version_main={major_version} failed: {retry_err}")
+                raise retry_err
+        raise e
+
 def main():
     parser = argparse.ArgumentParser(description="Google Phone Number Scraper for Hotels")
     parser.add_argument("--input", type=str, required=True, help="Path to the JSON file")
@@ -104,7 +122,7 @@ def main():
     
     driver = None
     try:
-        driver = uc.Chrome(options=options, headless=args.headless)
+        driver = init_chrome_driver(options=options, headless=args.headless)
         
         fetched_count = 0
         for h in hotels:
