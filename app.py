@@ -322,13 +322,8 @@ elif page == "📊 JSON to Excel Converter":
                     # Import and execute converter function
                     from json_to_excel import convert_json_to_excel
                     
-                    # Create string buffer to capture console printouts
-                    captured_stdout = io.StringIO()
-                    sys.stdout = captured_stdout
-                    
                     convert_json_to_excel(target_input, output_excel)
                     
-                    sys.stdout = sys.__stdout__
                     st.success(f"Successfully converted! Excel file saved at: `{output_excel}`")
                     
                     # Offer download option
@@ -342,8 +337,4 @@ elif page == "📊 JSON to Excel Converter":
                                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                 except Exception as ex:
-                    sys.stdout = sys.__stdout__
                     st.error(f"An error occurred during conversion: {ex}")
-                
-                with st.expander("Show Converter Log", expanded=True):
-                    st.code(captured_stdout.getvalue())
