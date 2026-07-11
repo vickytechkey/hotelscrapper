@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 
 def scrape_hotel_detail(driver, detail_url):
     """Visits the hotel detail page and extracts deep information."""
-    print(f"  └─ Visiting detail page: {detail_url}")
+    print(f"    -> Visiting detail page: {detail_url}")
     try:
         original_handle = driver.current_window_handle
         driver.execute_script("window.open('');")
@@ -43,10 +43,10 @@ def scrape_hotel_detail(driver, detail_url):
             driver.switch_to.window(original_handle)
             return {"DetailedAddress": detailed_address, "Amenities": amenities}
         else:
-            print("  └─ Failed to open new tab/window (popup blocker active?). Skipping deep scrape.")
+            print("    -> Failed to open new tab/window (popup blocker active?). Skipping deep scrape.")
             return {}
     except Exception as e:
-        print(f"  └─ Error visiting detail page: {e}")
+        print(f"    -> Error visiting detail page: {e}")
         try:
             if len(driver.window_handles) > 1:
                 driver.close()

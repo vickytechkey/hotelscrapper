@@ -136,10 +136,10 @@ def main():
                 phone = scrape_google_phone(driver, name, loc)
                 if phone:
                     h["Phone"] = phone
-                    print(f"  └─ Success: Found phone '{phone}' for '{name}'")
+                    print(f"    -> Success: Found phone '{phone}' for '{name}'")
                 else:
                     h["Phone"] = "Not Found"
-                    print(f"  └─ Failed: No phone number found for '{name}'")
+                    print(f"    -> Failed: No phone number found for '{name}'")
                     
                 # Incrementally save after each search to prevent data loss
                 try:
@@ -157,7 +157,7 @@ def main():
                 time.sleep(3)
                 
     except Exception as driver_err:
-        print(f"Driver initialization failed: {driver_err}")
+        print(f"Scraper execution failed: {driver_err}")
     finally:
         if driver:
             try:
