@@ -1,5 +1,6 @@
 import os
 import argparse
+import json
 import pandas as pd
 
 def convert_json_to_excel(json_path, excel_path):
@@ -9,8 +10,10 @@ def convert_json_to_excel(json_path, excel_path):
         return
 
     try:
-        # Load JSON data
-        df = pd.read_json(json_path)
+        # Load JSON data safely using standard library
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        df = pd.DataFrame(data)
         
         # Write to Excel
         print(f"Writing data to Excel: {excel_path}")
