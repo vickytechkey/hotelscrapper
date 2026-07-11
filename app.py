@@ -315,7 +315,7 @@ elif page == "📊 JSON to Excel Converter":
         else:
             if not output_excel:
                 base_name, _ = os.path.splitext(target_input)
-                output_excel = base_name + ".xlsx"
+                output_excel = base_name + ".csv"
                 
             with st.spinner("Converting..."):
                 try:
