@@ -334,11 +334,12 @@ elif page == "📊 JSON to Excel Converter":
                     # Offer download option
                     if os.path.exists(output_excel):
                         with open(output_excel, "rb") as f:
+                            file_bytes = f.read()
                             st.download_button(
-                                label="📥 Download Excel File",
-                                data=f,
-                                file_name=os.path.basename(output_excel),
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                  label="📥 Download Excel File",
+                                  data=file_bytes,
+                                  file_name=os.path.basename(output_excel),
+                                  mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                             )
                 except Exception as ex:
                     sys.stdout = sys.__stdout__
