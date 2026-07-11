@@ -1,0 +1,8 @@
+selenium
+beautifulsoup4
+pandas
+undetected-chromedriver
+requests
+openpyxl
+streamlit
+setuptools

@@ -1,0 +1,1 @@
+scan the project and remove the unwanted files
