@@ -77,7 +77,7 @@ st.markdown("<div class='subheader'>Scrape hotel details dynamically by location
 # Sidebar Navigation
 page = st.sidebar.radio(
     "Select a Tool",
-    ["🏨 Hotel Listing Scraper", "📊 JSON to Excel Converter"]
+    ["🏨 Hotel Listing Scraper", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
 )
 
 # Common City Codes Mapping
@@ -338,3 +338,58 @@ elif page == "📊 JSON to Excel Converter":
                             )
                 except Exception as ex:
                     st.error(f"An error occurred during conversion: {ex}")
+
+elif page == "📞 Get Phone Number":
+    st.markdown("<div class='main-header'>📞 Google Phone Number Scraper</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subheader'>Scan hotel names and locations from JSON, and search Google to find their phone numbers.</div>", unsafe_allow_html=True)
+    
+    # Locate all JSON files in the results/ folder
+    json_files = []
+    if os.path.exists("results"):
+        json_files = [os.path.join("results", f) for f in os.listdir("results") if f.endswith(".json")]
+        
+    input_file = st.selectbox("Select JSON File", options=json_files if json_files else ["No JSON files found in results/"])
+    custom_input = st.text_input("Or enter custom JSON File Path", value="" if json_files else "results/goa_hotels.json")
+    
+    target_input = custom_input if custom_input else input_file
+    
+    limit = st.number_input("Max hotels to fetch phone numbers for", min_value=1, max_value=500, value=20)
+    
+    # Headless toggle
+    headless = st.checkbox("Run in Headless Mode (Recommended for containers/VMs)", value=True)
+    
+    if st.button("📞 Start Fetching Phone Numbers"):
+        if not target_input or "No JSON files" in target_input:
+            st.error("Please specify a valid input JSON file path.")
+        elif not os.path.exists(target_input):
+            st.error(f"Input file `{target_input}` does not exist!")
+        else:
+            # Prepare command
+            cmd = [sys.executable, "phone_scraper.py", "--input", target_input, "--limit", str(limit)]
+            if headless:
+                cmd.append("--headless")
+                
+            # For Docker/Linux virtual display if headless=False
+            if not headless and sys.platform.startswith("linux"):
+                cmd = ["xvfb-run", '--server-args="-screen 0 1024x768x24"'] + cmd
+                
+            st.info(f"Running phone scraper subprocess: `{' '.join(cmd)}`")
+            
+            # Start process
+            log_area = st.empty()
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            
+            logs = []
+            while True:
+                line = process.stdout.readline()
+                if not line and process.poll() is not None:
+                    break
+                if line:
+                    logs.append(line)
+                    log_area.code("".join(logs[-30:])) # Show last 30 lines
+                    
+            rc = process.poll()
+            if rc == 0:
+                st.success("Successfully completed phone number fetching!")
+            else:
+                st.error(f"Scraper exited with code: {rc}")
