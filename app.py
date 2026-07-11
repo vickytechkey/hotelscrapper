@@ -371,7 +371,9 @@ elif page == "📞 Get Phone Number":
                 
             # For Docker/Linux virtual display if headless=False
             if not headless and sys.platform.startswith("linux"):
-                cmd = ["xvfb-run", '--server-args="-screen 0 1024x768x24"'] + cmd
+                import shutil
+                if shutil.which("xvfb-run"):
+                    cmd = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd
                 
             st.info(f"Running phone scraper subprocess: `{' '.join(cmd)}`")
             
