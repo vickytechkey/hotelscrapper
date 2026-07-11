@@ -69,6 +69,10 @@ def scrape_google_phone(driver, hotel_name, location):
 def init_chrome_driver(options, headless):
     import re
     try:
+        uc.Chrome.__del__ = lambda self: None
+    except:
+        pass
+    try:
         return uc.Chrome(options=options, headless=headless)
     except Exception as e:
         err_msg = str(e)

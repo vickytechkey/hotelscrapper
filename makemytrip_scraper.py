@@ -173,6 +173,10 @@ def parse_hotels_from_html(html, existing_names, hotels_data, output_file, drive
 def init_chrome_driver(options, headless):
     import re
     try:
+        uc.Chrome.__del__ = lambda self: None
+    except:
+        pass
+    try:
         return uc.Chrome(options=options, headless=headless)
     except Exception as e:
         err_msg = str(e)
