@@ -77,7 +77,7 @@ st.markdown("<div class='subheader'>Scrape hotel details dynamically by location
 # Sidebar Navigation
 page = st.sidebar.radio(
     "Select a Tool",
-    ["🏨 Hotel Listing Scraper", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
+    ["🏨 Hotel Listing Scraper", "🍴 Dine out online booking", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
 )
 
 # Common City Codes Mapping
@@ -163,7 +163,7 @@ if page == "🏨 Hotel Listing Scraper":
     with col1:
         output_filename = f"{re.sub(r'[^a-zA-Z0-9_]', '', location.strip().lower())}_hotels.json"
         output_file = st.text_input("Output File Path", value=os.path.join("results", output_filename))
-        scrolls = st.number_input("Scroll Iterations (Depth)", min_value=1, max_value=5000, value=6, step=1)
+        scrolls = st.number_input("Scroll Iterations (Depth)", min_value=1, max_value=5000, value=20, step=1)
         
         headless = False
         deep_scrape = st.checkbox("Deep Scrape (Scrape Address & Amenities)", value=False)
@@ -198,7 +198,7 @@ if page == "🏨 Hotel Listing Scraper":
             
             # Build command list
             cmd = [
-                sys.executable, "makemytrip_scraper.py",
+                sys.executable, "-u", "makemytrip_scraper.py",
                 "--url", url,
                 "--output", output_file,
                 "--scrolls", str(scrolls)
@@ -226,7 +226,8 @@ if page == "🏨 Hotel Listing Scraper":
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
-                    bufsize=1
+                    bufsize=1,
+                    env=dict(os.environ, PYTHONUNBUFFERED="1")
                 )
                 
                 log_text = ""
@@ -357,7 +358,7 @@ elif page == "📞 Get Phone Number":
     headless = False
     
     # Prepare command
-    cmd_list = [sys.executable, "phone_scraper.py", "--input", target_input, "--limit", str(limit)]
+    cmd_list = [sys.executable, "-u", "phone_scraper.py", "--input", target_input, "--limit", str(limit)]
         
     # For Docker/Linux virtual display if headless=False
     if not headless and sys.platform.startswith("linux"):
@@ -384,7 +385,14 @@ elif page == "📞 Get Phone Number":
             progress_bar = st.progress(0.0)
             status_text = st.empty()
             
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=dict(os.environ, PYTHONUNBUFFERED="1")
+            )
             
             logs = []
             total_hotels = 0
@@ -421,3 +429,128 @@ elif page == "📞 Get Phone Number":
                 st.success("Successfully completed phone number fetching!")
             else:
                 st.error(f"Scraper exited with code: {rc}")
+
+elif page == "🍴 Dine out online booking":
+    st.header("Zomato Dine Out - Online Booking Scraper")
+    
+    st.markdown(
+        """
+        <div class='card-container'>
+            <strong>Instructions:</strong> Enter a Zomato dine-out URL. The scraper will launch a browser, scroll dynamically to load the page content, extract restaurant names, ratings, areas, locations, and links, and save them as a JSON file.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    url = st.text_input("Zomato Dine Out URL", value="https://www.zomato.com/chennai/dine-out?table_booking=true")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        output_file = st.text_input("Output File Path", value=os.path.join("results", "zomato_dine_out.json"))
+        scrolls = st.number_input("Scroll Iterations (Depth)", min_value=1, max_value=500, value=20, step=1)
+        headless = st.checkbox("Run in Headless Mode", value=False)
+
+    if st.button("🚀 Start Zomato Scraping"):
+        if not url:
+            st.error("Please enter a Zomato URL.")
+        elif not output_file:
+            st.error("Please specify a target JSON file path.")
+        else:
+            st.info("Scraping started. Initializing browser & parameters...")
+            
+            # Placeholders for metrics
+            m_col1, m_col2, m_col3 = st.columns(3)
+            with m_col1:
+                scroll_metric = st.empty()
+            with m_col2:
+                hotels_metric = st.empty()
+            with m_col3:
+                saves_metric = st.empty()
+                
+            scroll_progress = st.progress(0.0)
+            
+            # Initialize metrics values
+            scroll_metric.markdown(f"<div class='metric-card'><div class='metric-value'>0 / {scrolls}</div><div class='metric-label'>Scroll Progress</div></div>", unsafe_allow_html=True)
+            hotels_metric.markdown("<div class='metric-card'><div class='metric-value'>0</div><div class='metric-label'>Hotels Found</div></div>", unsafe_allow_html=True)
+            saves_metric.markdown("<div class='metric-card'><div class='metric-value'>0</div><div class='metric-label'>Saved to File</div></div>", unsafe_allow_html=True)
+            
+            # Build command list
+            cmd = [
+                sys.executable, "-u", "zomato_scraper.py",
+                "--url", url,
+                "--output", output_file,
+                "--scrolls", str(scrolls)
+            ]
+            if headless:
+                cmd.append("--headless")
+            else:
+                if sys.platform.startswith('linux'):
+                    import shutil
+                    if shutil.which("xvfb-run"):
+                        cmd = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd
+                
+            # Log container
+            st.subheader("Real-Time Execution Logs")
+            log_box = st.empty()
+            
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=dict(os.environ, PYTHONUNBUFFERED="1")
+                )
+                
+                log_text = ""
+                total_saved = 0
+                total_hotels = 0
+                
+                while True:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    
+                    log_text += line
+                    log_box.code(log_text[-5000:])
+                    
+                    # Parse scroll updates
+                    # Scrolling page (1/6)...
+                    scroll_match = re.search(r"Scrolling page \((\d+)/(\d+)\)", line)
+                    if scroll_match:
+                        curr = int(scroll_match.group(1))
+                        tot = int(scroll_match.group(2))
+                        pct = min(max(curr / tot, 0.0), 1.0)
+                        scroll_progress.progress(pct)
+                        scroll_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{curr} / {tot}</div><div class='metric-label'>Scroll Progress</div></div>", unsafe_allow_html=True)
+                        
+                    # Parse parsed count updates
+                    # Parsed 12 hotel cards at scroll iteration 1...
+                    hotels_match = re.search(r"Parsed (\d+) hotel cards", line)
+                    if hotels_match:
+                        total_hotels = int(hotels_match.group(1))
+                        hotels_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{total_hotels}</div><div class='metric-label'>Hotels Found</div></div>", unsafe_allow_html=True)
+                        
+                    # Parse saved count updates
+                    # Incremental save: 12 hotels saved to ...
+                    save_match = re.search(r"Incremental save: (\d+) hotels", line)
+                    if save_match:
+                        total_saved += int(save_match.group(1))
+                        saves_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{total_saved}</div><div class='metric-label'>Saved to File</div></div>", unsafe_allow_html=True)
+                
+                process.wait()
+                
+                if process.returncode == 0:
+                    st.success(f"Scraping completed successfully! Output file: `{output_file}`")
+                    if os.path.exists(output_file):
+                        try:
+                            df = pd.read_json(output_file)
+                            st.dataframe(df)
+                        except Exception as parse_ex:
+                            st.warning(f"Unable to show file preview: {parse_ex}")
+                else:
+                    st.error(f"Scraper process terminated with exit code {process.returncode}")
+                    
+            except Exception as e:
+                st.error(f"Failed to start scraper subprocess: {e}")
