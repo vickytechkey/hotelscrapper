@@ -147,10 +147,22 @@ def main():
             feed = None
             
         if feed:
+            last_height = driver.execute_script("return arguments[0].scrollHeight", feed)
             for i in range(args.scrolls):
                 print(f"Scrolling page ({i+1}/{args.scrolls})...")
                 driver.execute_script("arguments[0].scrollTo(0, arguments[0].scrollHeight);", feed)
                 time.sleep(2.5)
+                
+                new_height = driver.execute_script("return arguments[0].scrollHeight", feed)
+                if new_height == last_height:
+                    # Give it a second chance with extra wait to handle lazy-loading delays
+                    time.sleep(2.0)
+                    driver.execute_script("arguments[0].scrollTo(0, arguments[0].scrollHeight);", feed)
+                    new_height = driver.execute_script("return arguments[0].scrollHeight", feed)
+                    if new_height == last_height:
+                        print("Reached the end of the list (no height change detected).")
+                        break
+                last_height = new_height
                 
         # Parse place links
         soup = BeautifulSoup(driver.page_source, 'html.parser')
@@ -224,6 +236,42 @@ def main():
                         timing = hours_el.get('aria-label').strip()
                 timing = clean_timing(timing)
                 
+                # Extract Rating and Reviews
+                rating = "N/A"
+                reviews_count = "N/A"
+                rating_container = detail_soup.select_one('div.F7nice') or detail_soup.select_one('[class*="F7nice"]')
+                if rating_container:
+                    rating_span = rating_container.select_one('span')
+                    if rating_span:
+                        rating = rating_span.text.strip()
+                    # Check for reviews count (usually enclosed in parentheses)
+                    for span in rating_container.find_all('span'):
+                        txt = span.text.strip()
+                        if '(' in txt and ')' in txt:
+                            reviews_count = txt.replace('(', '').replace(')', '').strip()
+                            break
+                        # Also check if it contains digit or comma and is not the rating
+                        elif txt and txt != rating and re.match(r'^[\d,]+$', txt):
+                            reviews_count = txt.replace(',', '')
+                            break
+                            
+                # Fallback for rating/reviews if not found
+                if rating == "N/A":
+                    star_el = detail_soup.select_one('span[aria-label*="stars"]')
+                    if star_el:
+                        label = star_el.get('aria-label', '')
+                        match = re.search(r'(\d\.\d|\d)', label)
+                        if match:
+                            rating = match.group(1)
+                            
+                if reviews_count == "N/A":
+                    reviews_el = detail_soup.select_one('[aria-label*="reviews"]') or detail_soup.select_one('[aria-label*="Reviews"]')
+                    if reviews_el:
+                        lbl = reviews_el.get('aria-label', '')
+                        match = re.search(r'([\d,]+)\s*reviews', lbl, re.IGNORECASE)
+                        if match:
+                            reviews_count = match.group(1).replace(',', '')
+                
                 # Extract Location/Area from Address
                 location = "N/A"
                 if address != "N/A":
@@ -233,6 +281,9 @@ def main():
                     elif len(parts) >= 2:
                         location = parts[-2]
                         
+                ranking = idx + 1
+                page_number = (idx // 10) + 1
+                        
                 place_record = {
                     "Name": name,
                     "Location": location,
@@ -240,6 +291,10 @@ def main():
                     "Pincode": pincode,
                     "Phone": phone,
                     "Business Timing": timing,
+                    "Rating": rating,
+                    "Reviews": reviews_count,
+                    "Ranking": ranking,
+                    "PageNumber": page_number,
                     "Link": item['href']
                 }
                 
