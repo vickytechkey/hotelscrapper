@@ -77,7 +77,7 @@ st.markdown("<div class='subheader'>Scrape hotel details dynamically by location
 # Sidebar Navigation
 page = st.sidebar.radio(
     "Select a Tool",
-    ["🏨 Hotel Listing Scraper", "🍴 Dine out online booking", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
+    ["🏨 Hotel Listing Scraper", "🍴 Dine out online booking", "🗺️ Google Maps Scraper", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
 )
 
 # Common City Codes Mapping
@@ -535,6 +535,128 @@ elif page == "🍴 Dine out online booking":
                     # Parse saved count updates
                     # Incremental save: 12 hotels saved to ...
                     save_match = re.search(r"Incremental save: (\d+) hotels", line)
+                    if save_match:
+                        total_saved += int(save_match.group(1))
+                        saves_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{total_saved}</div><div class='metric-label'>Saved to File</div></div>", unsafe_allow_html=True)
+                
+                process.wait()
+                
+                if process.returncode == 0:
+                    st.success(f"Scraping completed successfully! Output file: `{output_file}`")
+                    if os.path.exists(output_file):
+                        try:
+                            df = pd.read_json(output_file)
+                            st.dataframe(df)
+                        except Exception as parse_ex:
+                            st.warning(f"Unable to show file preview: {parse_ex}")
+                else:
+                    st.error(f"Scraper process terminated with exit code {process.returncode}")
+                    
+            except Exception as e:
+                st.error(f"Failed to start scraper subprocess: {e}")
+
+elif page == "🗺️ Google Maps Scraper":
+    st.header("Google Maps Scraper")
+    
+    st.markdown(
+        """
+        <div class='card-container'>
+            <strong>Instructions:</strong> Enter a Google Maps search URL. The scraper will launch a browser, scroll dynamically to load the places, extract names, location/areas, addresses, pincodes, phone numbers, and business timings, and save them as a JSON/CSV file.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    url = st.text_input("Google Maps Search URL", value="https://www.google.com/maps/search/restaurants+in+Candolim+Goa/")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        output_file = st.text_input("Output File Path", value=os.path.join("results", "google_maps_places.json"))
+        scrolls = st.number_input("Scroll Iterations (Depth)", min_value=1, max_value=500, value=5, step=1)
+        headless = st.checkbox("Run in Headless Mode", value=False)
+
+    if st.button("🚀 Start Maps Scraping"):
+        if not url:
+            st.error("Please enter a Google Maps URL.")
+        elif not output_file:
+            st.error("Please specify a target JSON/CSV file path.")
+        else:
+            st.info("Scraping started. Initializing browser & parameters...")
+            
+            # Placeholders for metrics
+            m_col1, m_col2, m_col3 = st.columns(3)
+            with m_col1:
+                scroll_metric = st.empty()
+            with m_col2:
+                places_metric = st.empty()
+            with m_col3:
+                saves_metric = st.empty()
+                
+            scroll_progress = st.progress(0.0)
+            
+            # Initialize metrics values
+            scroll_metric.markdown(f"<div class='metric-card'><div class='metric-value'>0 / {scrolls}</div><div class='metric-label'>Scroll Progress</div></div>", unsafe_allow_html=True)
+            places_metric.markdown("<div class='metric-card'><div class='metric-value'>0</div><div class='metric-label'>Places Found</div></div>", unsafe_allow_html=True)
+            saves_metric.markdown("<div class='metric-card'><div class='metric-value'>0</div><div class='metric-label'>Saved to File</div></div>", unsafe_allow_html=True)
+            
+            # Build command list
+            cmd = [
+                sys.executable, "-u", "google_maps_scraper.py",
+                "--url", url,
+                "--output", output_file,
+                "--scrolls", str(scrolls)
+            ]
+            if headless:
+                cmd.append("--headless")
+            else:
+                if sys.platform.startswith('linux'):
+                    import shutil
+                    if shutil.which("xvfb-run"):
+                        cmd = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd
+                
+            # Log container
+            st.subheader("Real-Time Execution Logs")
+            log_box = st.empty()
+            
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=dict(os.environ, PYTHONUNBUFFERED="1")
+                )
+                
+                log_text = ""
+                total_saved = 0
+                total_places = 0
+                
+                while True:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    
+                    log_text += line
+                    log_box.code(log_text[-5000:])
+                    
+                    # Parse scroll updates: Scrolling page (1/5)...
+                    scroll_match = re.search(r"Scrolling page \((\d+)/(\d+)\)", line)
+                    if scroll_match:
+                        curr = int(scroll_match.group(1))
+                        tot = int(scroll_match.group(2))
+                        pct = min(max(curr / tot, 0.0), 1.0)
+                        scroll_progress.progress(pct)
+                        scroll_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{curr} / {tot}</div><div class='metric-label'>Scroll Progress</div></div>", unsafe_allow_html=True)
+                        
+                    # Parse total places: Total: 20 places found in list.
+                    places_match = re.search(r"Total:\s*(\d+)", line)
+                    if places_match:
+                        total_places = int(places_match.group(1))
+                        places_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{total_places}</div><div class='metric-label'>Places Found</div></div>", unsafe_allow_html=True)
+                        
+                    # Parse saved count updates: Incremental save: 1 new hotel...
+                    save_match = re.search(r"Incremental save: (\d+) new", line)
                     if save_match:
                         total_saved += int(save_match.group(1))
                         saves_metric.markdown(f"<div class='metric-card'><div class='metric-value'>{total_saved}</div><div class='metric-label'>Saved to File</div></div>", unsafe_allow_html=True)
