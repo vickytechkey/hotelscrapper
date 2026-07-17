@@ -227,6 +227,7 @@ def scrape_google_travel(driver, args):
                     "number_of_reviews_provided_earlier": 0,
                     "trip_type": trip_type,
                     "travel_type": travel_type,
+                    "tags": trip_text,
                     "service": "N/A",
                     "rooms": "N/A",
                     "hotel_highlights": "N/A",
@@ -427,6 +428,11 @@ def main():
                 review_text = clean_text(text_el.text) if text_el else ""
                 
                 trip_type, travel_type = extract_trip_and_travel_type(card)
+                tags = "N/A"
+                if trip_type != "N/A" and travel_type != "N/A":
+                    tags = f"{trip_type} | {travel_type}"
+                elif trip_type != "N/A":
+                    tags = trip_type
                 
                 service_rating = extract_aspect_rating(card, "Service")
                 rooms_rating = extract_aspect_rating(card, "Rooms")
@@ -446,6 +452,7 @@ def main():
                     "number_of_reviews_provided_earlier": reviews_count,
                     "trip_type": trip_type,
                     "travel_type": travel_type,
+                    "tags": tags,
                     "service": service_rating,
                     "rooms": rooms_rating,
                     "hotel_highlights": highlights,
