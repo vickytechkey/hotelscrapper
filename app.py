@@ -77,7 +77,7 @@ st.markdown("<div class='subheader'>Scrape hotel details dynamically by location
 # Sidebar Navigation
 page = st.sidebar.radio(
     "Select a Tool",
-    ["🏨 Hotel Listing Scraper", "🍴 Dine out online booking", "🗺️ Google Maps Scraper", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
+    ["🏨 Hotel Listing Scraper", "🍴 Dine out online booking", "🗺️ Google Maps Scraper", "💬 Review Scraper", "📊 JSON to Excel Converter", "📞 Get Phone Number"]
 )
 
 # Common City Codes Mapping
@@ -665,6 +665,105 @@ elif page == "🗺️ Google Maps Scraper":
                 
                 if process.returncode == 0:
                     st.success(f"Scraping completed successfully! Output file: `{output_file}`")
+                    if os.path.exists(output_file):
+                        try:
+                            df = pd.read_json(output_file)
+                            st.dataframe(df)
+                        except Exception as parse_ex:
+                            st.warning(f"Unable to show file preview: {parse_ex}")
+                else:
+                    st.error(f"Scraper process terminated with exit code {process.returncode}")
+                    
+            except Exception as e:
+                st.error(f"Failed to start scraper subprocess: {e}")
+
+elif page == "💬 Review Scraper":
+    st.markdown("<div class='main-header'>💬 Google Maps & Travel Review Scraper</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subheader'>Scrape reviews for a specific Google Maps or Google Travel place and save them into a structured JSON file.</div>", unsafe_allow_html=True)
+    
+    with st.form("review_scraper_form"):
+        url = st.text_input("Google Maps / Travel Reviews URL", placeholder="https://www.google.com/maps/place/... or https://www.google.com/travel/...")
+        hotel_name = st.text_input("Hotel Name", placeholder="e.g. Hotel Grand Palace Kodaikanal")
+        location = st.text_input("Location", placeholder="e.g. Kodaikanal")
+        pincode = st.text_input("Pincode", placeholder="e.g. 624101")
+        address = st.text_input("Address", placeholder="e.g. Near Coaker's Walk")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            limit = st.number_input("Maximum Reviews to Scrape", min_value=1, max_value=5000, value=50)
+        with col2:
+            headless = st.checkbox("Run Headless Browser (Invisible)", value=True)
+            
+        default_file = f"results/{hotel_name.lower().replace(' ', '_')}_reviews.json" if hotel_name else "results/reviews.json"
+        output_file = st.text_input("Output File Path (JSON)", value=default_file)
+        
+        submitted = st.form_submit_button("Start Scraping Reviews")
+        
+    if submitted:
+        if not url:
+            st.error("Please enter a Google Maps URL.")
+        elif not hotel_name or not location or not pincode or not address:
+            st.error("Please fill in all expected details (Hotel Name, Location, Pincode, Address).")
+        elif not output_file:
+            st.error("Please specify a target JSON file path.")
+        else:
+            st.info("Scraping reviews started. Initializing browser & parameters...")
+            
+            # Placeholders for progress
+            progress_bar = st.progress(0.0)
+            log_box = st.empty()
+            
+            cmd = [
+                sys.executable, "-u", "google_maps_review_scraper.py",
+                "--url", url,
+                "--hotel-name", hotel_name,
+                "--location", location,
+                "--pincode", pincode,
+                "--address", address,
+                "--output", output_file,
+                "--limit", str(limit)
+            ]
+            if headless:
+                cmd.append("--headless")
+            else:
+                if sys.platform.startswith('linux'):
+                    import shutil
+                    if shutil.which("xvfb-run"):
+                        cmd = ["xvfb-run", "--server-args=-screen 0 1024x768x24"] + cmd
+                        
+            st.subheader("Real-Time Execution Logs")
+            log_box = st.empty()
+            
+            try:
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                    env=dict(os.environ, PYTHONUNBUFFERED="1")
+                )
+                
+                log_text = ""
+                while True:
+                    line = process.stdout.readline()
+                    if not line:
+                        break
+                    
+                    log_text += line
+                    log_box.code(log_text[-5000:])
+                    
+                    # Parse progress/status lines
+                    match_loaded = re.search(r"Loaded (\d+) review elements", line)
+                    if match_loaded:
+                        curr = int(match_loaded.group(1))
+                        pct = min(max(curr / limit, 0.0), 1.0)
+                        progress_bar.progress(pct)
+                        
+                process.wait()
+                
+                if process.returncode == 0:
+                    st.success(f"Review scraping completed successfully! Output file: `{output_file}`")
                     if os.path.exists(output_file):
                         try:
                             df = pd.read_json(output_file)
